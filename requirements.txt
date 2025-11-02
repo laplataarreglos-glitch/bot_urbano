@@ -1,6 +1,6 @@
 python-telegram-bot==20.6
 supabase==1.0.3
-geopandas==1.2.2
+geopandas==1.5.3
 shapely==2.1.1
 pandas==2.1.1
 numpy==1.26.5
