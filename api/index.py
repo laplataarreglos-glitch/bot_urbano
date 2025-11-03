@@ -1,8 +1,10 @@
 import os
 import json
 from telegram import Update
-from telegram.ext import Application, ContextTypes, CallbackQueryHandler, MessageHandler, filters
+from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
 from handlers import start, location, informe
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 # --- Token del bot desde variables de entorno ---
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -11,40 +13,29 @@ TOKEN = os.environ.get("TELEGRAM_TOKEN")
 bot_app = Application.builder().token(TOKEN).build()
 
 # --- Agregar handlers ---
-# /start
 bot_app.add_handler(MessageHandler(filters.Regex(r"^/start$"), start.start))
-
-# Ubicación
 bot_app.add_handler(MessageHandler(filters.LOCATION, location.handle_location))
-
-# Callback de "ver resumen"
 bot_app.add_handler(CallbackQueryHandler(informe.enviar_informe_llm, pattern="ver_informe_simple"))
 
+# --- Crear app ASGI para Vercel ---
+app = FastAPI()
 
-# --- Handler principal para Vercel ---
-async def handler(request):
-    """
-    Endpoint principal que recibe las actualizaciones del webhook de Telegram.
-    Compatible con FastAPI/ASGI (Vercel lo usa por defecto para Python 3.11+)
-    """
-    if request.method == "GET":
-        return {
-            "statusCode": 200,
-            "body": "Bot urbano activo ✅"
-        }
+@app.get("/")
+async def root():
+    return JSONResponse({"status": "Bot urbano activo ✅"})
 
-    if request.method == "POST":
-        try:
-            # Leer el cuerpo del request
-            body = await request.body()
-            data = json.loads(body)
+@app.post("/api")
+async def telegram_webhook(request: Request):
+    try:
+        body = await request.body()
+        data = json.loads(body)
 
-            # Procesar update de Telegram
-            update = Update.de_json(data, bot_app.bot)
-            await bot_app.process_update(update)
+        update = Update.de_json(data, bot_app.bot)
+        await bot_app.process_update(update)
 
-            return {"statusCode": 200, "body": "OK"}
+        # Telegram necesita OK como JSON
+        return JSONResponse({"ok": True})
 
-        except Exception as e:
-            print("⚠️ Error procesando update:", e)
-            return {"statusCode": 500, "body": "Error interno del servidor"}
+    except Exception as e:
+        print("⚠️ Error procesando update:", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
