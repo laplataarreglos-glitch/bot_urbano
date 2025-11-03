@@ -5,33 +5,46 @@ from telegram.ext import Application, ContextTypes, CallbackQueryHandler, Messag
 from handlers import start, location, informe
 
 # --- Token del bot desde variables de entorno ---
-TOKEN = os.environ["TELEGRAM_TOKEN"]
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
 # --- Crear la aplicación del bot ---
-app = Application.builder().token(TOKEN).build()
+bot_app = Application.builder().token(TOKEN).build()
 
 # --- Agregar handlers ---
 # /start
-app.add_handler(MessageHandler(filters.Regex(r"^/start$"), start.start))
+bot_app.add_handler(MessageHandler(filters.Regex(r"^/start$"), start.start))
 
 # Ubicación
-app.add_handler(MessageHandler(filters.LOCATION, location.handle_location))
+bot_app.add_handler(MessageHandler(filters.LOCATION, location.handle_location))
 
 # Callback de "ver resumen"
-app.add_handler(CallbackQueryHandler(informe.enviar_informe_llm, pattern="ver_informe_simple"))
+bot_app.add_handler(CallbackQueryHandler(informe.enviar_informe_llm, pattern="ver_informe_simple"))
 
-# --- Función principal para Vercel ---
+
+# --- Handler principal para Vercel ---
 async def handler(request):
     """
-    Recibe el POST de Telegram y procesa el update.
+    Endpoint principal que recibe las actualizaciones del webhook de Telegram.
+    Compatible con FastAPI/ASGI (Vercel lo usa por defecto para Python 3.11+)
     """
-    # Telegram manda JSON
-    body = await request.body()
-    data = json.loads(body)
+    if request.method == "GET":
+        return {
+            "statusCode": 200,
+            "body": "Bot urbano activo ✅"
+        }
 
-    update = Update.de_json(data, app.bot)
-    await app.update_queue.put(update)
-    await app.process_update(update)
+    if request.method == "POST":
+        try:
+            # Leer el cuerpo del request
+            body = await request.body()
+            data = json.loads(body)
 
-    # Respuesta obligatoria para webhook
-    return {"statusCode": 200, "body": "OK"}
+            # Procesar update de Telegram
+            update = Update.de_json(data, bot_app.bot)
+            await bot_app.process_update(update)
+
+            return {"statusCode": 200, "body": "OK"}
+
+        except Exception as e:
+            print("⚠️ Error procesando update:", e)
+            return {"statusCode": 500, "body": "Error interno del servidor"}
