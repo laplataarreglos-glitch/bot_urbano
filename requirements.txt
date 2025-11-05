@@ -1,11 +1,21 @@
+# --- Bot y servidor ---
 python-telegram-bot==20.6
-supabase==1.0.3
-geopandas==0.14.4
-shapely==2.1.1
-pandas==2.1.1
-numpy>=2.0.0
-fastapi==0.111.1
-uvicorn>=0.30.0
-gunicorn==21.2.0
-flask>=3.0.0
+fastapi==0.111.0
+uvicorn==0.30.6
 
+# --- Conexión a Supabase ---
+supabase==2.5.0
+gotrue==2.4.0
+postgrest==0.16.0
+storage3==0.7.0
+
+# --- Geo y análisis espacial (opcionales, según tu código) ---
+geopandas==0.14.4
+shapely==2.0.4
+pyproj==3.6.1
+fiona==1.9.6
+
+# --- Dependencias base ---
+pandas==2.2.3
+numpy==1.26.4
+requests==2.32.3
