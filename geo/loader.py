@@ -1,5 +1,5 @@
 import os
-from supabase import create_client
+from upload_gpkg import create_client
 from typing import Optional, Dict
 
 # --- Inicializar cliente de Supabase ---

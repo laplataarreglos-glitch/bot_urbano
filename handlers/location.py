@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
-from supabase import create_client
+from upload_gpkg import create_client
 import os
 
 # --- Configuración de Supabase ---
