@@ -3,7 +3,7 @@ supabase==1.0.3
 geopandas==0.14.4
 shapely==2.1.1
 pandas==2.1.1
-numpy==1.26.5
+numpy>=2.0.0
 fastapi==0.111.1
 uvicorn==0.25.1
 gunicorn==21.2.0
