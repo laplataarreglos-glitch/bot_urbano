@@ -5,9 +5,9 @@ uvicorn==0.30.6
 
 # --- Conexión a Supabase ---
 supabase==2.5.0
-gotrue==2.4.0
-postgrest==0.16.0
-storage3==0.7.0
+gotrue==2.12.4
+postgrest==0.16.1
+storage3==0.7.4
 
 # --- Geo y análisis espacial (opcionales, según tu código) ---
 geopandas==0.14.4
