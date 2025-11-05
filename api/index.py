@@ -9,6 +9,9 @@ from fastapi.responses import JSONResponse
 # --- Token del bot desde variables de entorno ---
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
+if not TOKEN:
+    raise ValueError("❌ Falta la variable de entorno TELEGRAM_TOKEN")
+
 # --- Crear la aplicación del bot ---
 bot_app = Application.builder().token(TOKEN).build()
 
@@ -22,10 +25,12 @@ app = FastAPI()
 
 @app.get("/")
 async def root():
-    return JSONResponse({"status": "Bot urbano activo ✅"})
+    """Verifica si el bot está activo"""
+    return JSONResponse({"status": "Bot urbano activo ✅", "ok": True})
 
 @app.post("/api")
 async def telegram_webhook(request: Request):
+    """Endpoint para recibir actualizaciones desde Telegram"""
     try:
         body = await request.body()
         data = json.loads(body)
@@ -33,9 +38,7 @@ async def telegram_webhook(request: Request):
         update = Update.de_json(data, bot_app.bot)
         await bot_app.process_update(update)
 
-        # Telegram necesita OK como JSON
         return JSONResponse({"ok": True})
-
     except Exception as e:
-        print("⚠️ Error procesando update:", e)
+        print(f"⚠️ Error procesando update: {e}")
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

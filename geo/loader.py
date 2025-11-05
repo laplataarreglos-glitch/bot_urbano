@@ -1,50 +1,59 @@
 import os
 from supabase import create_client
-import geopandas as gpd
-from shapely import wkb
-from shapely.geometry import Point
+from typing import Optional, Dict
 
 # --- Inicializar cliente de Supabase ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def cargar_base(partido: str):
+async def buscar_partido_desde_ubicacion(lat: float, lon: float, partidos: list) -> Optional[str]:
     """
-    Carga todos los registros de un partido desde la tabla de Supabase.
-    Convierte la geometría a GeoDataFrame.
+    Busca el partido que contiene el punto (lat, lon) usando PostGIS directamente en Supabase.
     """
-    partido = str(partido)
-    res = supabase.table(partido).select("*").execute()
-    data = res.data
-    if not data:
-        return gpd.GeoDataFrame()
-    
-    geometries = []
-    for row in data:
-        geom_wkb = row.pop("geometry", None)
-        geometries.append(wkb.loads(bytes.fromhex(geom_wkb)) if geom_wkb else None)
+    for partido in partidos:
+        sql = f"""
+        SELECT 1
+        FROM {partido}
+        WHERE ST_Contains(geometry, ST_SetSRID(ST_Point({lon}, {lat}), 4326))
+        LIMIT 1;
+        """
+        try:
+            res = supabase.rpc("exec_sql", {"sql": sql}).execute()
+            if res.data:
+                return partido
+        except Exception as e:
+            print(f"Error buscando en partido {partido}: {e}")
+    return None
 
-    gdf = gpd.GeoDataFrame(data, geometry=geometries, crs="EPSG:4326")
-    return gdf
 
-def buscar_por_partida(partido: str, partida: int):
-    gdf = cargar_base(partido)
-    if gdf.empty:
-        return None
-    resultado = gdf[gdf['PARTIDA'] == int(partida)]
-    return resultado if not resultado.empty else None
+async def buscar_por_partida(partido: str, partida: int) -> Optional[Dict]:
+    """
+    Devuelve una fila con los atributos de la partida indicada.
+    """
+    try:
+        res = supabase.table(partido).select("*").eq("PARTIDA", partida).limit(1).execute()
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        print(f"Error al buscar partida {partida} en {partido}: {e}")
+    return None
 
-def buscar_partido_desde_ubicacion(lat: float, lon: float, partido_list: list):
+
+async def buscar_por_ubicacion(partido: str, lat: float, lon: float) -> Optional[Dict]:
     """
-    Itera sobre las tablas de partidos y devuelve el partido que contiene el punto.
+    Devuelve la parcela que contiene el punto, sin cargar geometrías completas.
     """
-    punto = Point(lon, lat)
-    
-    for partido in partido_list:
-        gdf = cargar_base(partido)
-        if gdf.empty:
-            continue
-        if gdf.contains(punto).any():
-            return partido
+    sql = f"""
+    SELECT PARTIDO, PARTIDA, sup, fos, fota, dena
+    FROM {partido}
+    WHERE ST_Contains(geometry, ST_SetSRID(ST_Point({lon}, {lat}), 4326))
+    LIMIT 1;
+    """
+    try:
+        res = supabase.rpc("exec_sql", {"sql": sql}).execute()
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        print(f"Error al buscar por ubicación en {partido}: {e}")
     return None

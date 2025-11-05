@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 async def enviar_informe_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Genera un informe interpretativo de indicadores urbanísticos"""
     query = update.callback_query
     await query.answer()
 
@@ -25,19 +26,21 @@ async def enviar_informe_llm(update: Update, context: ContextTypes.DEFAULT_TYPE)
         fot_val = float(fot)
         densidad_val = float(densidad)
     except ValueError:
-        await query.message.reply_text("❌ No se pudo procesar los valores numéricos del resultado anterior.")
+        await query.message.reply_text(
+            "❌ No se pudo procesar correctamente los valores numéricos del resultado anterior."
+        )
         return
 
     informe = (
         f"🧾 *Informe interpretativo del lote*\n\n"
         f"📐 El terreno posee una superficie de aproximadamente *{sup_val:,.0f} m²*.\n"
-        f"🔸 El *FOS* es de *{fos_val}*, lo cual permite ocupar hasta *{fos_val*100:.0f}%* de la superficie en planta baja.\n"
-        f"🔸 El *FOT* es de *{fot_val}*, lo que autoriza construir hasta *{fot_val*sup_val:,.0f} m²* en total, considerando varios niveles.\n"
-        f"👥 Con una densidad máxima de *{densidad_val} hab/ha*, se estima la posibilidad de *{(densidad_val * sup_val / 10000):.0f} habitantes* en este lote.\n\n"
-        f"🧱 Las subdivisiones deberán respetar una *superficie mínima* de *{sm} m²* y un *lado mínimo* de *{lm} m*.\n"
-        f"🔎 Esto condiciona el tamaño de los lotes resultantes y el tipo de vivienda posible.\n\n"
-        f"💡 Este terreno tiene potencial para un desarrollo habitacional de escala media, con capacidad constructiva adecuada "
-        f"y posibilidad de subdividir según las normativas vigentes.\n"
+        f"🔸 El *FOS* es de *{fos_val}*, lo que permite ocupar hasta *{fos_val*100:.0f}%* de la superficie en planta baja.\n"
+        f"🔸 El *FOT* es de *{fot_val}*, por lo tanto, se pueden construir hasta *{fot_val*sup_val:,.0f} m²* totales en varios niveles.\n"
+        f"👥 Con una densidad máxima de *{densidad_val} hab/ha*, podrían habitar aproximadamente *{(densidad_val * sup_val / 10000):.0f} personas*.\n\n"
+        f"🧱 Las subdivisiones deben respetar una *superficie mínima* de *{sm} m²* y un *lado mínimo* de *{lm} m*.\n"
+        f"🔎 Esto condiciona el tamaño de los lotes resultantes y el tipo de desarrollo posible.\n\n"
+        f"💡 Este terreno presenta potencial para un desarrollo habitacional de escala media, "
+        f"con capacidad constructiva adecuada y posibilidad de subdividir conforme a normativa.\n\n"
         f"¿Querés que te ayude a modelar un proyecto con estos indicadores? 🚀"
     )
 
