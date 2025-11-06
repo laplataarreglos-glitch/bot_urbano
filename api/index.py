@@ -18,7 +18,7 @@ bot_app = Application.builder().token(TOKEN).build()
 # --- Agregar handlers ---
 bot_app.add_handler(MessageHandler(filters.Regex(r"^/start$"), start.start))
 bot_app.add_handler(MessageHandler(filters.LOCATION, location.handle_location))
-bot_app.add_handler(CallbackQueryHandler(informe.enviar_informe_llm, pattern="ver_informe_simple"))
+bot_app.add_handler(CallbackQueryHandler(informe_indicadores.enviar_informe_llm, pattern="ver_informe_simple"))
 
 # --- Crear app ASGI para Vercel ---
 app = FastAPI()
@@ -42,5 +42,6 @@ async def telegram_webhook(request: Request):
     except Exception as e:
         print(f"⚠️ Error procesando update: {e}")
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-# al final del archivo index.py
+
+# --- Necesario para que Vercel lo reconozca ---
 handler = app
