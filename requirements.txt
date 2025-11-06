@@ -2,12 +2,12 @@ python-telegram-bot==20.6
 fastapi==0.115.5
 uvicorn==0.30.6
 
-# Forzar compatibilidad de dependencias
-httpx==0.25.1
+# Dependencias web y compatibilidad
+httpx==0.25.0
 
 # Librerías Supabase
 supabase==2.3.5
-gotrue==2.10.0
+gotrue==2.9.2
 storage3==0.7.6
 
 # Librerías GIS y análisis
