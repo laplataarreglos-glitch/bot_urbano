@@ -42,3 +42,5 @@ async def telegram_webhook(request: Request):
     except Exception as e:
         print(f"⚠️ Error procesando update: {e}")
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+# al final del archivo index.py
+handler = app
