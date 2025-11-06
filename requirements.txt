@@ -2,15 +2,14 @@ python-telegram-bot==20.6
 fastapi==0.115.5
 uvicorn==0.30.6
 
-# Dependencia común
-httpx==0.24.1
+httpx==0.25.2
 
-# Supabase stack compatible con httpx 0.24.x
-supabase==2.0.3
-gotrue==2.8.0
-storage3==0.7.3
+# Stack supabase moderno compatible con httpx 0.25.x
+supabase==2.3.5
+gotrue==2.9.2
+storage3==0.7.5
 
-# Geoespacial y pandas
+# Geoespacial y data
 geopandas==0.14.4
 shapely==2.0.4
 pyproj==3.6.1
