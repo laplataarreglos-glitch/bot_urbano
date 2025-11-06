@@ -1,9 +1,6 @@
-python-telegram-bot
-fastapi
-uvicorn
+python-telegram-bot==20.7
+fastapi==0.115.0
+uvicorn==0.30.0
 supabase
-pyproj
-fiona
-pandas
-numpy
+httpx
 requests
