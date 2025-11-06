@@ -2,7 +2,7 @@ import os
 import json
 from telegram import Update
 from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
-from handlers import start, location, informe
+from handlers import start, location, informe_indicadores
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
