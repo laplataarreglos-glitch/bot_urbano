@@ -1,16 +1,21 @@
+import os
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
-from upload_gpkg import create_client
-import os
+from supabase import create_client  # ✅ usa el cliente oficial
 
 # --- Configuración de Supabase ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("❌ Faltan las variables SUPABASE_URL o SUPABASE_KEY")
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Lista de tablas disponibles
 PARTIDOS_DISPONIBLES = ["55", "56", "57"]
 
+# --- Handler principal ---
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.location:
         return await update.message.reply_text("⚠️ No se recibió una ubicación válida.")
@@ -40,36 +45,35 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup(
         [[InlineKeyboardButton("📊 Ver resumen", callback_data="ver_informe_simple")]]
     )
+
     await update.message.reply_text(result_text, parse_mode="Markdown", reply_markup=keyboard)
 
-# --- FUNCIONES AUXILIARES ---
-
+# --- Funciones auxiliares ---
 async def buscar_partido_desde_ubicacion(lat, lon):
-    """
-    Itera por los partidos disponibles y devuelve el primero que contenga el punto.
-    Usa la función ST_Contains desde Supabase.
-    """
     for partido in PARTIDOS_DISPONIBLES:
         sql = f"""
-        select 1 from {partido}
-        where ST_Contains(geometry, ST_SetSRID(ST_Point({lon}, {lat}), 4326))
-        limit 1;
+        SELECT 1 FROM {partido}
+        WHERE ST_Contains(geometry, ST_SetSRID(ST_Point({lon}, {lat}), 4326))
+        LIMIT 1;
         """
-        res = supabase.rpc("exec_sql", {"sql": sql}).execute()
-        if res.data and len(res.data) > 0:
-            return partido
+        try:
+            res = supabase.rpc("exec_sql", {"sql": sql}).execute()
+            if res.data and len(res.data) > 0:
+                return partido
+        except Exception as e:
+            print(f"Error buscando en partido {partido}: {e}")
     return None
 
 async def buscar_partida_por_ubicacion(partido, lat, lon):
-    """
-    Busca los datos completos de la partida que contiene el punto.
-    """
     sql = f"""
-    select * from {partido}
-    where ST_Contains(geometry, ST_SetSRID(ST_Point({lon}, {lat}), 4326))
-    limit 1;
+    SELECT * FROM {partido}
+    WHERE ST_Contains(geometry, ST_SetSRID(ST_Point({lon}, {lat}), 4326))
+    LIMIT 1;
     """
-    res = supabase.rpc("exec_sql", {"sql": sql}).execute()
-    if res.data and len(res.data) > 0:
-        return res.data
+    try:
+        res = supabase.rpc("exec_sql", {"sql": sql}).execute()
+        if res.data and len(res.data) > 0:
+            return res.data
+    except Exception as e:
+        print(f"Error al buscar partida por ubicación en {partido}: {e}")
     return None
