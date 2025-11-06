@@ -1,16 +1,15 @@
 import re
-from telegram import Update
-from telegram.ext import ContextTypes
 
-async def enviar_informe_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Genera un informe interpretativo de indicadores urbanísticos"""
-    query = update.callback_query
-    await query.answer()
 
-    text = query.message.text
+def enviar_informe_llm(callback_text: str):
+    """
+    Genera un informe interpretativo de indicadores urbanísticos
+    a partir del texto del resultado anterior (callback_text).
+    Devuelve un diccionario con 'text' y 'reply_markup'.
+    """
 
     def extraer_valor(label):
-        match = re.search(rf"{label}:\s*([^\n]+)", text)
+        match = re.search(rf"{label}:\s*([^\n]+)", callback_text)
         return match.group(1).strip() if match else "N/A"
 
     sup = extraer_valor("Superficie")
@@ -26,10 +25,10 @@ async def enviar_informe_llm(update: Update, context: ContextTypes.DEFAULT_TYPE)
         fot_val = float(fot)
         densidad_val = float(densidad)
     except ValueError:
-        await query.message.reply_text(
-            "❌ No se pudo procesar correctamente los valores numéricos del resultado anterior."
-        )
-        return
+        return {
+            "text": "❌ No se pudo procesar correctamente los valores numéricos del resultado anterior.",
+            "reply_markup": None,
+        }
 
     informe = (
         f"🧾 *Informe interpretativo del lote*\n\n"
@@ -44,4 +43,12 @@ async def enviar_informe_llm(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"¿Querés que te ayude a modelar un proyecto con estos indicadores? 🚀"
     )
 
-    await query.message.reply_text(informe, parse_mode="Markdown")
+    # Podrías agregar botones para próximos pasos, si querés
+    reply_markup = {
+        "inline_keyboard": [
+            [{"text": "📊 Generar modelo", "callback_data": "generar_modelo_proyecto"}],
+            [{"text": "⬅️ Volver al resultado", "callback_data": "volver_resultado"}],
+        ]
+    }
+
+    return {"text": informe, "reply_markup": reply_markup}

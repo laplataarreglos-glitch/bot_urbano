@@ -1,7 +1,5 @@
 import os
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import ContextTypes
-from supabase import create_client  # ✅ usa el cliente oficial
+from supabase import create_client
 
 # --- Configuración de Supabase ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -12,24 +10,25 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Lista de tablas disponibles
+# --- Tablas disponibles ---
 PARTIDOS_DISPONIBLES = ["55", "56", "57"]
 
-# --- Handler principal ---
-async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.location:
-        return await update.message.reply_text("⚠️ No se recibió una ubicación válida.")
 
-    lat = update.message.location.latitude
-    lon = update.message.location.longitude
-
-    partido = await buscar_partido_desde_ubicacion(lat, lon)
+def handle_location(lat: float, lon: float):
+    """Busca el partido y partida correspondientes a una ubicación y devuelve texto + botones."""
+    partido = buscar_partido_desde_ubicacion(lat, lon)
     if not partido:
-        return await update.message.reply_text("🚫 No se encontró el partido para esta ubicación.")
+        return {
+            "text": "🚫 No se encontró el partido para esta ubicación.",
+            "reply_markup": None,
+        }
 
-    resultado = await buscar_partida_por_ubicacion(partido, lat, lon)
+    resultado = buscar_partida_por_ubicacion(partido, lat, lon)
     if not resultado:
-        return await update.message.reply_text("🔍 No se encontró la partida dentro del partido.")
+        return {
+            "text": "🔍 No se encontró la partida dentro del partido.",
+            "reply_markup": None,
+        }
 
     row = resultado[0]
     result_text = (
@@ -42,14 +41,17 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👥 Densidad: {row.get('dena', 'N/A')}\n"
     )
 
-    keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("📊 Ver resumen", callback_data="ver_informe_simple")]]
-    )
+    keyboard = {
+        "inline_keyboard": [
+            [{"text": "📊 Ver resumen", "callback_data": "ver_informe_simple"}]
+        ]
+    }
 
-    await update.message.reply_text(result_text, parse_mode="Markdown", reply_markup=keyboard)
+    return {"text": result_text, "reply_markup": keyboard}
+
 
 # --- Funciones auxiliares ---
-async def buscar_partido_desde_ubicacion(lat, lon):
+def buscar_partido_desde_ubicacion(lat, lon):
     for partido in PARTIDOS_DISPONIBLES:
         sql = f"""
         SELECT 1 FROM {partido}
@@ -64,7 +66,8 @@ async def buscar_partido_desde_ubicacion(lat, lon):
             print(f"Error buscando en partido {partido}: {e}")
     return None
 
-async def buscar_partida_por_ubicacion(partido, lat, lon):
+
+def buscar_partida_por_ubicacion(partido, lat, lon):
     sql = f"""
     SELECT * FROM {partido}
     WHERE ST_Contains(geometry, ST_SetSRID(ST_Point({lon}, {lat}), 4326))

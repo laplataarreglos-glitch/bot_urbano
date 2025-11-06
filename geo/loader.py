@@ -1,13 +1,17 @@
 import os
-from upload_gpkg import create_client
+from supabase import create_client
 from typing import Optional, Dict
 
 # --- Inicializar cliente de Supabase ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("❌ Faltan variables de entorno SUPABASE_URL o SUPABASE_KEY")
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-async def buscar_partido_desde_ubicacion(lat: float, lon: float, partidos: list) -> Optional[str]:
+def buscar_partido_desde_ubicacion(lat: float, lon: float, partidos: list) -> Optional[str]:
     """
     Busca el partido que contiene el punto (lat, lon) usando PostGIS directamente en Supabase.
     """
@@ -23,11 +27,11 @@ async def buscar_partido_desde_ubicacion(lat: float, lon: float, partidos: list)
             if res.data:
                 return partido
         except Exception as e:
-            print(f"Error buscando en partido {partido}: {e}")
+            print(f"⚠️ Error buscando en partido {partido}: {e}")
     return None
 
 
-async def buscar_por_partida(partido: str, partida: int) -> Optional[Dict]:
+def buscar_por_partida(partido: str, partida: int) -> Optional[Dict]:
     """
     Devuelve una fila con los atributos de la partida indicada.
     """
@@ -36,11 +40,11 @@ async def buscar_por_partida(partido: str, partida: int) -> Optional[Dict]:
         if res.data:
             return res.data[0]
     except Exception as e:
-        print(f"Error al buscar partida {partida} en {partido}: {e}")
+        print(f"⚠️ Error al buscar partida {partida} en {partido}: {e}")
     return None
 
 
-async def buscar_por_ubicacion(partido: str, lat: float, lon: float) -> Optional[Dict]:
+def buscar_por_ubicacion(partido: str, lat: float, lon: float) -> Optional[Dict]:
     """
     Devuelve la parcela que contiene el punto, sin cargar geometrías completas.
     """
@@ -55,5 +59,5 @@ async def buscar_por_ubicacion(partido: str, lat: float, lon: float) -> Optional
         if res.data:
             return res.data[0]
     except Exception as e:
-        print(f"Error al buscar por ubicación en {partido}: {e}")
+        print(f"⚠️ Error al buscar por ubicación en {partido}: {e}")
     return None

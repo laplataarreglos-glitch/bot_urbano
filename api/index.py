@@ -1,86 +1,82 @@
+from flask import Flask, request, jsonify
 import os
 import requests
-from flask import Flask, request, jsonify
 
-# --- Configuración del bot ---
-TOKEN = os.environ.get("TELEGRAM_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ Falta TELEGRAM_TOKEN")
+# --- Handlers ---
+from handlers.start import start_handler
+from handlers.location import handle_location
+from handlers.informe_indicadores import enviar_informe_llm
 
-BOT_URL = f"https://api.telegram.org/bot{TOKEN}"
-
+# --- Configuración básica ---
 app = Flask(__name__)
 
-# --- Rutas ---
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"status": "Bot urbano activo ✅"}), 200
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("❌ Falta la variable BOT_TOKEN")
 
-@app.route("/api", methods=["POST"])
-def webhook():
-    """Recibe actualizaciones de Telegram"""
-    try:
-        data = request.get_json(force=True)
-
-        if "message" in data:
-            chat_id = data["message"]["chat"]["id"]
-            text = data["message"].get("text", "")
-
-            # --- Comando /start ---
-            if text == "/start":
-                return send_welcome(chat_id)
-
-            # --- Si el usuario envía ubicación ---
-            if "location" in data["message"]:
-                lat = data["message"]["location"]["latitude"]
-                lon = data["message"]["location"]["longitude"]
-                return send_location_info(chat_id, lat, lon)
-
-            # --- Cualquier otro texto ---
-            send_message(chat_id, "ℹ️ Usá /start para comenzar o compartí tu ubicación.")
-        return jsonify({"ok": True})
-    except Exception as e:
-        print("❌ Error en webhook:", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 
-# --- Funciones auxiliares ---
-def send_message(chat_id, text, keyboard=None):
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    if keyboard:
-        payload["reply_markup"] = keyboard
-    requests.post(f"{BOT_URL}/sendMessage", json=payload)
-
-
-def send_welcome(chat_id):
-    keyboard = {
-        "keyboard": [
-            [{"text": "📍 Compartir ubicación", "request_location": True}],
-            [{"text": "🏘️ Buscar por partido y partida"}],
-            [{"text": "ℹ️ Ayuda"}]
-        ],
-        "resize_keyboard": True,
-        "one_time_keyboard": False
+# --- Función para enviar mensajes a Telegram ---
+def send_message(chat_id, text, reply_markup=None, parse_mode="Markdown"):
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": parse_mode,
     }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
 
-    mensaje = (
-        "👋 ¡Hola! Soy tu *Bot de Indicadores Urbanos* 🏙️\n\n"
-        "Podés usar una de las siguientes opciones:\n"
-        "📍 Compartí tu ubicación para ver los indicadores del lugar.\n"
-        "🏘️ Buscá manualmente por partido y partida.\n"
-        "ℹ️ Pedí ayuda para saber más comandos disponibles.\n\n"
-        "Elegí una opción del menú 👇"
+    requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
+
+
+# --- Ruta del webhook ---
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.get_json(force=True)
+    print("📩 Update recibido:", data)
+
+    message = data.get("message", {})
+    callback = data.get("callback_query", {})
+    chat_id = (
+        message.get("chat", {}).get("id")
+        or callback.get("message", {}).get("chat", {}).get("id")
     )
 
-    send_message(chat_id, mensaje, keyboard)
-    return jsonify({"ok": True})
+    # 🟢 /start
+    if "text" in message and message["text"].startswith("/start"):
+        resp = start_handler()
+        send_message(chat_id, resp["text"], reply_markup=resp["reply_markup"])
+        return jsonify({"ok": True})
+
+    # 📍 Ubicación compartida
+    if "location" in message:
+        lat = message["location"]["latitude"]
+        lon = message["location"]["longitude"]
+        resp = handle_location(lat, lon)
+        send_message(chat_id, resp["text"], reply_markup=resp["reply_markup"])
+        return jsonify({"ok": True})
+
+    # 📲 Callback (botones inline)
+    if callback:
+        data_callback = callback.get("data")
+        text_origen = callback.get("message", {}).get("text", "")
+
+        if data_callback == "ver_informe_simple":
+            resp = enviar_informe_llm(text_origen)
+            send_message(chat_id, resp["text"], reply_markup=resp["reply_markup"])
+            return jsonify({"ok": True})
+
+    # ❌ No se reconoció la acción
+    return jsonify({"ok": False, "msg": "Sin acción reconocida"})
 
 
-def send_location_info(chat_id, lat, lon):
-    mensaje = f"📍 Recibí tu ubicación: {lat:.5f}, {lon:.5f}\n\nBuscando indicadores..."
-    send_message(chat_id, mensaje)
-    return jsonify({"ok": True})
+# --- Endpoint simple para ver que está vivo ---
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"status": "ok", "message": "Bot de Indicadores Urbanos activo"})
 
 
-# --- Para Vercel ---
-handler = app
+# --- Inicialización ---
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
