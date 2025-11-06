@@ -2,15 +2,15 @@ python-telegram-bot==20.6
 fastapi==0.115.5
 uvicorn==0.30.6
 
-# Forzar compatibilidad entre httpx dependientes
+# Forzar compatibilidad de dependencias
 httpx==0.25.1
 
-# Versión compatible de supabase y dependencias
+# Librerías Supabase
 supabase==2.3.5
 gotrue==2.10.0
-postgrest==0.16.3
 storage3==0.7.6
 
+# Librerías GIS y análisis
 geopandas==0.14.4
 shapely==2.0.4
 pyproj==3.6.1
