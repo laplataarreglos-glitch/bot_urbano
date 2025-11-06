@@ -1,19 +1,11 @@
-python-telegram-bot==20.6
-fastapi==0.115.5
-uvicorn==0.30.6
-
-httpx==0.25.2
-
-# Stack supabase moderno compatible con httpx 0.25.x
-supabase==2.3.5
-gotrue==2.9.2
-storage3==0.7.5
-
-# Geoespacial y data
-geopandas==0.14.4
-shapely==2.0.4
-pyproj==3.6.1
-fiona==1.9.6
-pandas==2.2.3
-numpy==1.26.4
-requests==2.32.3
+python-telegram-bot
+fastapi
+uvicorn
+supabase
+geopandas
+shapely
+pyproj
+fiona
+pandas
+numpy
+requests
