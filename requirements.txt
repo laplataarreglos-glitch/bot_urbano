@@ -1,8 +1,4 @@
-python-telegram-bot==20.8
-fastapi==0.115.0
-supabase==2.3.0
-pyproj
-fiona
-pandas
-numpy
-requests
+Flask==3.0.3
+requests==2.32.3
+supabase==2.4.0
+gunicorn==22.0.0

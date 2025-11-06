@@ -1,47 +1,86 @@
 import os
-import json
-from telegram import Update
-from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
-from handlers import start, location, informe_indicadores
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+import requests
+from flask import Flask, request, jsonify
 
-# --- Token del bot desde variables de entorno ---
+# --- Configuración del bot ---
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
-
 if not TOKEN:
-    raise ValueError("❌ Falta la variable de entorno TELEGRAM_TOKEN")
+    raise ValueError("❌ Falta TELEGRAM_TOKEN")
 
-# --- Crear la aplicación del bot ---
-bot_app = Application.builder().token(TOKEN).build()
+BOT_URL = f"https://api.telegram.org/bot{TOKEN}"
 
-# --- Agregar handlers ---
-bot_app.add_handler(MessageHandler(filters.Regex(r"^/start$"), start.start))
-bot_app.add_handler(MessageHandler(filters.LOCATION, location.handle_location))
-bot_app.add_handler(CallbackQueryHandler(informe_indicadores.enviar_informe_llm, pattern="ver_informe_simple"))
+app = Flask(__name__)
 
-# --- Crear app ASGI para Vercel ---
-app = FastAPI()
+# --- Rutas ---
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"status": "Bot urbano activo ✅"}), 200
 
-@app.get("/")
-async def root():
-    """Verifica si el bot está activo"""
-    return JSONResponse({"status": "Bot urbano activo ✅", "ok": True})
-
-@app.post("/api")
-async def telegram_webhook(request: Request):
-    """Endpoint para recibir actualizaciones desde Telegram"""
+@app.route("/api", methods=["POST"])
+def webhook():
+    """Recibe actualizaciones de Telegram"""
     try:
-        body = await request.body()
-        data = json.loads(body)
+        data = request.get_json(force=True)
 
-        update = Update.de_json(data, bot_app.bot)
-        await bot_app.process_update(update)
+        if "message" in data:
+            chat_id = data["message"]["chat"]["id"]
+            text = data["message"].get("text", "")
 
-        return JSONResponse({"ok": True})
+            # --- Comando /start ---
+            if text == "/start":
+                return send_welcome(chat_id)
+
+            # --- Si el usuario envía ubicación ---
+            if "location" in data["message"]:
+                lat = data["message"]["location"]["latitude"]
+                lon = data["message"]["location"]["longitude"]
+                return send_location_info(chat_id, lat, lon)
+
+            # --- Cualquier otro texto ---
+            send_message(chat_id, "ℹ️ Usá /start para comenzar o compartí tu ubicación.")
+        return jsonify({"ok": True})
     except Exception as e:
-        print(f"⚠️ Error procesando update: {e}")
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        print("❌ Error en webhook:", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
 
-# --- Necesario para que Vercel lo reconozca ---
+
+# --- Funciones auxiliares ---
+def send_message(chat_id, text, keyboard=None):
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    if keyboard:
+        payload["reply_markup"] = keyboard
+    requests.post(f"{BOT_URL}/sendMessage", json=payload)
+
+
+def send_welcome(chat_id):
+    keyboard = {
+        "keyboard": [
+            [{"text": "📍 Compartir ubicación", "request_location": True}],
+            [{"text": "🏘️ Buscar por partido y partida"}],
+            [{"text": "ℹ️ Ayuda"}]
+        ],
+        "resize_keyboard": True,
+        "one_time_keyboard": False
+    }
+
+    mensaje = (
+        "👋 ¡Hola! Soy tu *Bot de Indicadores Urbanos* 🏙️\n\n"
+        "Podés usar una de las siguientes opciones:\n"
+        "📍 Compartí tu ubicación para ver los indicadores del lugar.\n"
+        "🏘️ Buscá manualmente por partido y partida.\n"
+        "ℹ️ Pedí ayuda para saber más comandos disponibles.\n\n"
+        "Elegí una opción del menú 👇"
+    )
+
+    send_message(chat_id, mensaje, keyboard)
+    return jsonify({"ok": True})
+
+
+def send_location_info(chat_id, lat, lon):
+    mensaje = f"📍 Recibí tu ubicación: {lat:.5f}, {lon:.5f}\n\nBuscando indicadores..."
+    send_message(chat_id, mensaje)
+    return jsonify({"ok": True})
+
+
+# --- Para Vercel ---
 handler = app
