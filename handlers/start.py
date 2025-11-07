@@ -1,3 +1,5 @@
+import json
+
 def start_handler():
     """Devuelve el mensaje y teclado de inicio del bot"""
 
@@ -20,4 +22,5 @@ def start_handler():
         "Elegí una opción del menú 👇"
     )
 
-    return {"text": texto, "reply_markup": teclado}
+    # Telegram necesita que el reply_markup se envíe como JSON
+    return {"text": texto, "reply_markup": json.dumps(teclado)}
