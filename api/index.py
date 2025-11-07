@@ -23,25 +23,42 @@ TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 
 # --- Función para enviar mensajes a Telegram ---
-def send_message(chat_id, text, reply_markup=None, parse_mode="Markdown"):
+def send_message(chat_id, resp):
+    """Envía un mensaje seguro, validando que resp tenga 'text' y 'reply_markup'"""
     if not chat_id:
-        logging.warning("⚠️ send_message llamado sin chat_id")
+        logging.warning("⚠️ chat_id es None, no se puede enviar mensaje")
         return
+    if not resp or not isinstance(resp, dict):
+        logging.warning(f"⚠️ resp inválido: {resp}")
+        return
+
+    text = resp.get("text")
+    reply_markup = resp.get("reply_markup")
+
+    if not text:
+        logging.warning(f"⚠️ No hay 'text' en resp: {resp}")
+        return
+
     payload = {
         "chat_id": chat_id,
         "text": text,
-        "parse_mode": parse_mode,
+        "parse_mode": "Markdown"
     }
+
     if reply_markup:
-        # Telegram requiere JSON string para reply_markup
-        payload["reply_markup"] = json.dumps(reply_markup)
+        # Telegram no acepta None dentro del reply_markup
+        try:
+            payload["reply_markup"] = json.dumps(reply_markup)
+        except Exception as e:
+            logging.error(f"Error serializando reply_markup: {e}")
+            payload.pop("reply_markup", None)
 
     try:
         res = requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload, timeout=10)
         if not res.ok:
             logging.error(f"❌ Error al enviar mensaje: {res.text}")
-    except requests.RequestException as e:
-        logging.error(f"❌ Exception en send_message: {e}")
+    except Exception as e:
+        logging.error(f"❌ Exception en safe_send_message: {e}")
 
 
 # --- Ruta del webhook ---
@@ -63,7 +80,7 @@ def webhook():
     # 🟢 /start
     if "text" in message and message["text"].startswith("/start"):
         resp = start_handler()
-        send_message(chat_id, resp["text"], reply_markup=resp["reply_markup"])
+        send_message(chat_id, resp)   # <- reemplaza send_message
         return jsonify({"ok": True})
 
     # 📍 Ubicación compartida
@@ -71,7 +88,7 @@ def webhook():
         lat = message["location"]["latitude"]
         lon = message["location"]["longitude"]
         resp = handle_location(lat, lon)
-        send_message(chat_id, resp["text"], reply_markup=resp["reply_markup"])
+        safe_send_message(chat_id, resp)   # <- reemplaza send_message
         return jsonify({"ok": True})
 
     # 📲 Callback (botones inline)
@@ -81,14 +98,12 @@ def webhook():
 
         if data_callback == "ver_informe_simple":
             resp = enviar_informe_llm(text_origen)
-            send_message(chat_id, resp["text"], reply_markup=resp["reply_markup"])
+            send_message(chat_id, resp)  # <- reemplaza send_message
             return jsonify({"ok": True})
         else:
             logging.info(f"⚠️ Callback no reconocido: {data_callback}")
 
-    # ❌ No se reconoció la acción
     return jsonify({"ok": False, "msg": "Sin acción reconocida"})
-
 
 # --- Endpoint simple para ver que está vivo ---
 @app.route("/", methods=["GET"])
