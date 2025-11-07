@@ -46,7 +46,6 @@ def send_message(chat_id, resp):
     }
 
     if reply_markup:
-        # Telegram no acepta None dentro del reply_markup
         try:
             payload["reply_markup"] = json.dumps(reply_markup)
         except Exception as e:
@@ -58,7 +57,7 @@ def send_message(chat_id, resp):
         if not res.ok:
             logging.error(f"❌ Error al enviar mensaje: {res.text}")
     except Exception as e:
-        logging.error(f"❌ Exception en safe_send_message: {e}")
+        logging.error(f"❌ Exception en send_message: {e}")
 
 
 # --- Ruta del webhook ---
@@ -69,41 +68,50 @@ def webhook():
 
     message = data.get("message", {})
     callback = data.get("callback_query", {})
+
     chat_id = (
         message.get("chat", {}).get("id")
         or callback.get("message", {}).get("chat", {}).get("id")
     )
 
     if not chat_id:
+        logging.warning(f"⚠️ chat_id ausente en update: {data}")
         return jsonify({"ok": False, "msg": "Sin chat_id"})
 
-    # 🟢 /start
-    if "text" in message and message["text"].startswith("/start"):
-        resp = start_handler()
-        send_message(chat_id, resp)   # <- reemplaza send_message
-        return jsonify({"ok": True})
-
-    # 📍 Ubicación compartida
-    if "location" in message:
-        lat = message["location"]["latitude"]
-        lon = message["location"]["longitude"]
-        resp = handle_location(lat, lon)
-        send_message(chat_id, resp)   # <- reemplaza send_message
-        return jsonify({"ok": True})
-
-    # 📲 Callback (botones inline)
-    if callback:
-        data_callback = callback.get("data")
-        text_origen = callback.get("message", {}).get("text", "")
-
-        if data_callback == "ver_informe_simple":
-            resp = enviar_informe_llm(text_origen)
-            send_message(chat_id, resp)  # <- reemplaza send_message
+    try:
+        # 🟢 /start
+        if "text" in message and message["text"].startswith("/start"):
+            resp = start_handler()
+            send_message(chat_id, resp)
             return jsonify({"ok": True})
-        else:
-            logging.info(f"⚠️ Callback no reconocido: {data_callback}")
 
-    return jsonify({"ok": False, "msg": "Sin acción reconocida"})
+        # 📍 Ubicación compartida
+        if "location" in message:
+            lat = message["location"]["latitude"]
+            lon = message["location"]["longitude"]
+            resp = handle_location(lat, lon)
+            send_message(chat_id, resp)
+            return jsonify({"ok": True})
+
+        # 📲 Callback (botones inline)
+        if callback:
+            data_callback = callback.get("data")
+            text_origen = callback.get("message", {}).get("text", "")
+
+            if data_callback == "ver_informe_simple":
+                resp = enviar_informe_llm(text_origen)
+                send_message(chat_id, resp)
+                return jsonify({"ok": True})
+            else:
+                logging.info(f"⚠️ Callback no reconocido: {data_callback}")
+
+        # ❌ No se reconoció la acción
+        return jsonify({"ok": False, "msg": "Sin acción reconocida"})
+
+    except Exception as e:
+        logging.exception(f"❌ Excepción manejando update: {e}")
+        return jsonify({"ok": False, "msg": "Error interno del bot"})
+
 
 # --- Endpoint simple para ver que está vivo ---
 @app.route("/", methods=["GET"])
