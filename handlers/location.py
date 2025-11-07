@@ -13,26 +13,35 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 PARTIDOS_DISPONIBLES = ["55", "56", "57"]
 
+# --- Función principal ---
 def handle_location(lat: float, lon: float):
-    """Busca el partido y partida correspondientes a una ubicación y devuelve texto + botones."""
+    """Busca el partido y partida y devuelve texto + botones seguros."""
     try:
         partido = buscar_partido_desde_ubicacion(lat, lon)
         if not partido:
-            return {"text": "🚫 No se encontró el partido para esta ubicación.", "reply_markup": None}
+            return {"text": "🚫 No se encontró el partido para esta ubicación.", "reply_markup": {}}
 
         resultado = buscar_partida_por_ubicacion(partido, lat, lon)
-        if not resultado:
-            return {"text": "🔍 No se encontró la partida dentro del partido.", "reply_markup": None}
+        if not resultado or len(resultado) == 0:
+            return {"text": "🔍 No se encontró la partida dentro del partido.", "reply_markup": {}}
 
         row = resultado[0]
+        # aseguramos que todos los campos existan
+        sup_val = row.get('sup', 'N/A')
+        fos_val = row.get('fos', 'N/A')
+        fota_val = row.get('fota', 'N/A')
+        dena_val = row.get('dena', 'N/A')
+        partido_val = row.get('partido', 'N/A')
+        partida_val = row.get('partida', 'N/A')
+
         result_text = (
             "📍 *Resultado encontrado:*\n\n"
-            f"🏙️ Partido: {row.get('partido', 'N/A')}\n"
-            f"🏠 Partida: {row.get('partida', 'N/A')}\n"
-            f"📐 Superficie: {row.get('sup', 'N/A')} m²\n"
-            f"🏗️ FOS: {row.get('fos', 'N/A')}\n"
-            f"🏢 FOT: {row.get('fota', 'N/A')}\n"
-            f"👥 Densidad: {row.get('dena', 'N/A')}\n"
+            f"🏙️ Partido: {partido_val}\n"
+            f"🏠 Partida: {partida_val}\n"
+            f"📐 Superficie: {sup_val} m²\n"
+            f"🏗️ FOS: {fos_val}\n"
+            f"🏢 FOT: {fota_val}\n"
+            f"👥 Densidad: {dena_val}\n"
         )
 
         keyboard = {"inline_keyboard": [[{"text": "📊 Ver resumen", "callback_data": "ver_informe_simple"}]]}
@@ -41,7 +50,7 @@ def handle_location(lat: float, lon: float):
 
     except Exception as e:
         logging.error(f"⚠️ Error en handle_location: {e}")
-        return {"text": "❌ Ocurrió un error al procesar la ubicación.", "reply_markup": None}
+        return {"text": "❌ Ocurrió un error al procesar la ubicación.", "reply_markup": {}}
 
 
 # --- Funciones auxiliares ---

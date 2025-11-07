@@ -7,6 +7,7 @@ def enviar_informe_llm(callback_text: str):
     a partir del texto del resultado anterior (callback_text).
     Devuelve un diccionario con 'text' y 'reply_markup'.
     """
+
     try:
         def extraer_valor(label):
             match = re.search(rf"{label}:\s*([^\n]+)", callback_text)
@@ -19,25 +20,41 @@ def enviar_informe_llm(callback_text: str):
         sm = extraer_valor("Superficie mínima")
         lm = extraer_valor("Lado mínimo")
 
-        try:
-            sup_val = float(sup)
-            fos_val = float(fos)
-            fot_val = float(fot)
-            densidad_val = float(densidad)
-        except ValueError:
-            return {"text": "❌ No se pudo procesar correctamente los valores numéricos del resultado anterior.", 
-                    "reply_markup": None}
+        # --- Conversión segura ---
+        def a_float(valor):
+            try:
+                return float(str(valor).replace(",", "."))
+            except Exception:
+                return None
+
+        sup_val = a_float(sup)
+        fos_val = a_float(fos)
+        fot_val = a_float(fot)
+        densidad_val = a_float(densidad)
+
+        if not all([sup_val, fos_val, fot_val, densidad_val]):
+            texto_error = (
+                "⚠️ No se pudieron interpretar correctamente algunos valores del resultado anterior.\n"
+                "Verificá que el mensaje contenga números válidos para superficie, FOS, FOT y densidad."
+            )
+            return {"text": texto_error, "reply_markup": {"inline_keyboard": [
+                [{"text": "⬅️ Volver al resultado", "callback_data": "volver_resultado"}]
+            ]}}
+
+        # --- Cálculos ---
+        superficie_ocupada = fos_val * sup_val
+        superficie_total = fot_val * sup_val
+        habitantes_estimados = (densidad_val * sup_val / 10000)
 
         informe = (
-            f"🧾 *Informe interpretativo del lote*\n\n"
-            f"📐 El terreno posee una superficie de aproximadamente *{sup_val:,.0f} m²*.\n"
-            f"🔸 El *FOS* es de *{fos_val}*, lo que permite ocupar hasta *{fos_val*100:.0f}%* de la superficie en planta baja.\n"
-            f"🔸 El *FOT* es de *{fot_val}*, por lo tanto, se pueden construir hasta *{fot_val*sup_val:,.0f} m²* totales en varios niveles.\n"
-            f"👥 Con una densidad máxima de *{densidad_val} hab/ha*, podrían habitar aproximadamente *{(densidad_val * sup_val / 10000):.0f} personas*.\n\n"
-            f"🧱 Las subdivisiones deben respetar una *superficie mínima* de *{sm} m²* y un *lado mínimo* de *{lm} m*.\n"
-            f"🔎 Esto condiciona el tamaño de los lotes resultantes y el tipo de desarrollo posible.\n\n"
-            f"💡 Este terreno presenta potencial para un desarrollo habitacional de escala media, "
-            f"con capacidad constructiva adecuada y posibilidad de subdividir conforme a normativa.\n\n"
+            "🧾 *Informe interpretativo del lote*\n\n"
+            f"📐 Superficie del terreno: *{sup_val:,.0f} m²*\n"
+            f"🏗️ FOS: *{fos_val}* → ocupa hasta *{superficie_ocupada:,.0f} m²* en planta baja.\n"
+            f"🏢 FOT: *{fot_val}* → permite construir hasta *{superficie_total:,.0f} m²* totales.\n"
+            f"👥 Densidad: *{densidad_val} hab/ha* → aprox. *{habitantes_estimados:,.0f} personas*.\n\n"
+            f"🧱 Subdivisión mínima: *{sm} m²*, lado mínimo: *{lm} m*.\n\n"
+            f"💡 Este lote tiene potencial para un desarrollo habitacional de escala media, "
+            f"con buena capacidad constructiva y subdivisión posible según normativa.\n\n"
             f"¿Querés que te ayude a modelar un proyecto con estos indicadores? 🚀"
         )
 
@@ -52,4 +69,6 @@ def enviar_informe_llm(callback_text: str):
 
     except Exception as e:
         logging.error(f"⚠️ Error en enviar_informe_llm: {e}")
-        return {"text": "❌ Ocurrió un error generando el informe.", "reply_markup": None}
+        return {"text": "❌ Ocurrió un error generando el informe.", "reply_markup": {"inline_keyboard": [
+            [{"text": "⬅️ Volver", "callback_data": "volver_resultado"}]
+        ]}}
