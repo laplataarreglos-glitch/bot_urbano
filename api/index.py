@@ -1,6 +1,8 @@
-from flask import Flask, request, jsonify
 import os
+import json
+import logging
 import requests
+from flask import Flask, request, jsonify
 
 # --- Handlers ---
 from handlers.start import start_handler
@@ -9,6 +11,9 @@ from handlers.informe_indicadores import enviar_informe_llm
 
 # --- Configuración básica ---
 app = Flask(__name__)
+
+# Logging
+logging.basicConfig(level=logging.INFO)
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
@@ -19,22 +24,31 @@ TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 # --- Función para enviar mensajes a Telegram ---
 def send_message(chat_id, text, reply_markup=None, parse_mode="Markdown"):
+    if not chat_id:
+        logging.warning("⚠️ send_message llamado sin chat_id")
+        return
     payload = {
         "chat_id": chat_id,
         "text": text,
         "parse_mode": parse_mode,
     }
     if reply_markup:
-        payload["reply_markup"] = reply_markup
+        # Telegram requiere JSON string para reply_markup
+        payload["reply_markup"] = json.dumps(reply_markup)
 
-    requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
+    try:
+        res = requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload, timeout=10)
+        if not res.ok:
+            logging.error(f"❌ Error al enviar mensaje: {res.text}")
+    except requests.RequestException as e:
+        logging.error(f"❌ Exception en send_message: {e}")
 
 
 # --- Ruta del webhook ---
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json(force=True)
-    print("📩 Update recibido:", data)
+    data = request.get_json(silent=True) or {}
+    logging.info(f"📩 Update recibido: {data}")
 
     message = data.get("message", {})
     callback = data.get("callback_query", {})
@@ -42,6 +56,9 @@ def webhook():
         message.get("chat", {}).get("id")
         or callback.get("message", {}).get("chat", {}).get("id")
     )
+
+    if not chat_id:
+        return jsonify({"ok": False, "msg": "Sin chat_id"})
 
     # 🟢 /start
     if "text" in message and message["text"].startswith("/start"):
@@ -66,6 +83,8 @@ def webhook():
             resp = enviar_informe_llm(text_origen)
             send_message(chat_id, resp["text"], reply_markup=resp["reply_markup"])
             return jsonify({"ok": True})
+        else:
+            logging.info(f"⚠️ Callback no reconocido: {data_callback}")
 
     # ❌ No se reconoció la acción
     return jsonify({"ok": False, "msg": "Sin acción reconocida"})
@@ -80,5 +99,6 @@ def home():
 # --- Inicialización ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+
 # Requerido por Vercel
 handler = app
