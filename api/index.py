@@ -88,7 +88,7 @@ def webhook():
         lat = message["location"]["latitude"]
         lon = message["location"]["longitude"]
         resp = handle_location(lat, lon)
-        safe_send_message(chat_id, resp)   # <- reemplaza send_message
+        send_message(chat_id, resp)   # <- reemplaza send_message
         return jsonify({"ok": True})
 
     # 📲 Callback (botones inline)
