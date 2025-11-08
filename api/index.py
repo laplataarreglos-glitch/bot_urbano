@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
@@ -8,9 +8,9 @@ def home():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
     print("Webhook recibido:", data)
-    return jsonify({"ok": True, "echo": data})
+    return jsonify({"ok": True, "msg": "Webhook recibido"}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    app.run(debug=True)
