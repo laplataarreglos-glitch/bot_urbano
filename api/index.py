@@ -1,5 +1,5 @@
-import json
 import os
+import json
 import requests
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -31,14 +31,29 @@ def send_message(chat_id, payload):
     requests.post(f"{URL}/sendMessage", json={"chat_id": chat_id, **payload})
 
 def handler(request, response):
-    body = request.get_json()
-    message = body.get("message", {})
-    chat_id = message.get("chat", {}).get("id")
-    text = message.get("text", "")
+    try:
+        # 1) Cargar JSON del cuerpo correctamente para Vercel
+        body_raw = request.body
+        data = json.loads(body_raw)
 
-    if text == "/start":
-        send_message(chat_id, start_handler())
-    else:
-        send_message(chat_id, {"text": "Comando no reconocido"})
+        # 2) Extraer mensaje seguro
+        message = data.get("message", {})
+        chat_id = message.get("chat", {}).get("id")
+        text = message.get("text", "")
 
-    return response.status(200).json({"ok": True})
+        # Si no hay chat_id NO intentes responder
+        if not chat_id:
+            return response.status(200).json({"ok": True})
+
+        # Comando /start
+        if text == "/start":
+            send_message(chat_id, start_handler())
+        else:
+            send_message(chat_id, {"text": "Comando no reconocido"})
+
+        return response.status(200).json({"ok": True})
+
+    except Exception as e:
+        # Log para ver el error en Vercel
+        print("Error interno:", e)
+        return response.status(500).json({"error": str(e)})
